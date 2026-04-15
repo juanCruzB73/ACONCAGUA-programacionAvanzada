@@ -1,4 +1,4 @@
-package patrones.creacionales;
+package practico1.patrones.creacionales;
 
 
 public class TorreControl {
