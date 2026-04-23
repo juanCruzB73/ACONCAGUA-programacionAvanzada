@@ -1,7 +1,11 @@
 import java.io.*;
 import java.net.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
@@ -9,203 +13,218 @@ import javax.script.ScriptException;
 public class Servidor {
 
     private static final int PUERTO = 5000;
-    private static final DateTimeFormatter FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter FORMATO_LOG = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final Map<String, ClientHandler> clientesConectados = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        log("=== SERVIDOR SOCKET INICIADO ===");
+        log("=== SERVIDOR MULTI-HILO INICIADO ===");
         log("Escuchando en el puerto " + PUERTO + "...");
-        log("Comandos soportados: RESOLVE \"expresion\" | EXIT");
         log("================================================");
 
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
-
             while (true) {
-                log("Esperando conexion de un cliente...");
-
-                try (Socket socketCliente = serverSocket.accept()) {
-                    String ipCliente = socketCliente.getInetAddress().getHostAddress();
-                    log(">>> Cliente conectado desde: " + ipCliente);
-
-                    manejarCliente(socketCliente);
-
-                    log("<<< Cliente " + ipCliente + " desconectado.");
-                    log("================================================");
-                }
+                Socket socketCliente = serverSocket.accept();
+                ClientHandler handler = new ClientHandler(socketCliente);
+                new Thread(handler).start();
             }
-
         } catch (IOException e) {
             log("[ERROR CRITICO] No se pudo iniciar el servidor: " + e.getMessage());
         }
     }
 
-    private static void manejarCliente(Socket socket) {
-        try (
-            BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter salida   = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true)
-        ) {
-            // Mensaje de bienvenida al cliente
-            salida.println("Bienvenido al Servidor de Chat/Calculadora!");
-            salida.println("Comandos disponibles:");
-            salida.println("  RESOLVE \"expresion\"  -> resuelve una expresion matematica");
-            salida.println("  EXIT                  -> cierra la conexion");
-            salida.println("Cualquier otro mensaje sera respondido como eco.");
-            salida.println("--------------------------------------------------");
-
-            String mensajeRecibido;
-
-            while ((mensajeRecibido = entrada.readLine()) != null) {
-                log("[RECIBIDO] " + mensajeRecibido);
-
-                if (mensajeRecibido.trim().equalsIgnoreCase("EXIT")) {
-                    salida.println("Hasta luego! Cerrando conexion...");
-                    log("[INFO] Cliente solicitó desconexion.");
-                    break;
-                }
-
-                String respuesta = procesarMensaje(mensajeRecibido.trim());
-                salida.println(respuesta);
-                log("[ENVIADO] " + respuesta);
-            }
-
-        } catch (IOException e) {
-            log("[ERROR] Problema de comunicacion con el cliente: " + e.getMessage());
-        }
-    }
-
-    private static String procesarMensaje(String mensaje) {
-        if (mensaje.toUpperCase().startsWith("RESOLVE")) {
-            int inicio = mensaje.indexOf('"');
-            int fin    = mensaje.lastIndexOf('"');
-
-            if (inicio == -1 || fin == -1 || inicio == fin) {
-                return "[ERROR] Formato invalido. Use: RESOLVE \"expresion\"  (ej: RESOLVE \"45*23/54+234\")";
-            }
-
-            String expresion = mensaje.substring(inicio + 1, fin).trim();
-
-            if (expresion.isEmpty()) {
-                return "[ERROR] La expresion esta vacia.";
-            }
-
-            return evaluarExpresion(expresion);
-        }
-
-        return "[SERVIDOR] Recibido: \"" + mensaje + "\"";
-    }
-
-    private static String evaluarExpresion(String expresion) {
-        if (!expresion.matches("[0-9+\\-*/%.() ]+")) {
-            return "[ERROR] Expresion invalida. Solo se permiten numeros y operadores: + - * / % ()";
-        }
-
-        try {
-            ScriptEngineManager manager = new ScriptEngineManager();
-            ScriptEngine engine = manager.getEngineByName("JavaScript");
-
-            if (engine == null) {
-                return evaluarSimple(expresion);
-            }
-
-            Object resultado = engine.eval(expresion);
-            return "[RESULTADO] " + expresion + " = " + resultado;
-
-        } catch (ScriptException e) {
-            return "[ERROR] No se pudo evaluar la expresion: " + e.getMessage();
-        }
-    }
-
-    private static String evaluarSimple(String expresion) {
-        try {
-            double resultado = new EvaluadorMatematico(expresion).evaluar();
-            if (resultado == Math.floor(resultado) && !Double.isInfinite(resultado)) {
-                return "[RESULTADO] " + expresion + " = " + (long) resultado;
-            }
-            return "[RESULTADO] " + expresion + " = " + resultado;
-        } catch (Exception e) {
-            return "[ERROR] Expresion matematica invalida: " + e.getMessage();
-        }
-    }
-
     private static void log(String mensaje) {
-        String hora = LocalDateTime.now().format(FORMATO_HORA);
+        String hora = LocalDateTime.now().format(FORMATO_LOG);
         System.out.println("[" + hora + "] " + mensaje);
     }
 
-    static class EvaluadorMatematico {
-        private final String expresion;
-        private int pos;
+    static class ClientHandler implements Runnable {
+        private final Socket socket;
+        private String nombreUsuario;
+        private PrintWriter salida;
+        private BufferedReader entrada;
 
-        EvaluadorMatematico(String expresion) {
-            this.expresion = expresion.replaceAll("\\s+", "");
-            this.pos = 0;
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
         }
 
-        double evaluar() {
-            double resultado = parsarExpresion();
-            if (pos < expresion.length()) {
-                throw new RuntimeException("Caracter inesperado en posicion " + pos + ": " + expresion.charAt(pos));
+        @Override
+        public void run() {
+            String ipCliente = socket.getInetAddress().getHostAddress();
+            try {
+                entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                salida = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+
+                // Protocolo de inicio: El cliente debe enviar su nombre de usuario
+                salida.println("CONEXION_EXITOSA: Ingrese su nombre de usuario:");
+                String nombreSugerido = entrada.readLine();
+                if (nombreSugerido == null || nombreSugerido.trim().isEmpty()) {
+                    nombreSugerido = "UsuarioAnonimo";
+                }
+                
+                this.nombreUsuario = asignarNombreUnico(nombreSugerido.trim());
+                clientesConectados.put(this.nombreUsuario, this);
+                
+                log(">>> Cliente conectado: " + this.nombreUsuario + " desde " + ipCliente);
+                
+                enviarMenuBienvenida();
+
+                String mensajeRecibido;
+                while ((mensajeRecibido = entrada.readLine()) != null) {
+                    log("[" + nombreUsuario + "] " + mensajeRecibido);
+                    procesarComando(mensajeRecibido.trim());
+                }
+
+            } catch (IOException e) {
+                log("[INFO] Conexion perdida con " + (nombreUsuario != null ? nombreUsuario : ipCliente));
+            } finally {
+                desconectar();
             }
-            return resultado;
         }
 
-        private double parsarExpresion() {
-            double resultado = parsarTermino();
-            while (pos < expresion.length() && (expresion.charAt(pos) == '+' || expresion.charAt(pos) == '-')) {
-                char op = expresion.charAt(pos++);
-                double derecha = parsarTermino();
-                resultado = (op == '+') ? resultado + derecha : resultado - derecha;
+        private String asignarNombreUnico(String base) {
+            String nombre = base;
+            int contador = 1;
+            while (clientesConectados.containsKey(nombre)) {
+                nombre = base + "_" + contador++;
             }
-            return resultado;
+            return nombre;
         }
 
-        private double parsarTermino() {
-            double resultado = parsarFactor();
-            while (pos < expresion.length() &&
-                   (expresion.charAt(pos) == '*' || expresion.charAt(pos) == '/' || expresion.charAt(pos) == '%')) {
-                char op = expresion.charAt(pos++);
-                double derecha = parsarFactor();
-                if (op == '*') resultado *= derecha;
-                else if (op == '/') {
-                    if (derecha == 0) throw new RuntimeException("Division por cero");
-                    resultado /= derecha;
+        private void enviarMenuBienvenida() {
+            salida.println("--------------------------------------------------");
+            salida.println("Bienvenido, " + nombreUsuario + "!");
+            salida.println("Comandos disponibles:");
+            salida.println("  HELP                  -> Muestra esta ayuda");
+            salida.println("  FECHA                 -> Muestra la fecha actual");
+            salida.println("  HORA                  -> Muestra la hora actual");
+            salida.println("  LIST                  -> Lista clientes conectados");
+            salida.println("  RESOLVE \"exp\"         -> Resuelve expresion matematica");
+            salida.println("  ALL \"mensaje\"         -> Envia mensaje a todos");
+            salida.println("  C<User1>,C<User2> \"msg\" -> Mensaje privado");
+            salida.println("  EXIT                  -> Cerrar conexion");
+            salida.println("--------------------------------------------------");
+        }
+
+        private void procesarComando(String mensaje) {
+            String mensajeUpper = mensaje.toUpperCase();
+
+            if (mensajeUpper.equals("EXIT")) {
+                salida.println("Hasta luego! Cerrando conexion...");
+                desconectar();
+            } else if (mensajeUpper.equals("HELP")) {
+                enviarMenuBienvenida();
+            } else if (mensajeUpper.equals("FECHA")) {
+                salida.println("[FECHA] " + LocalDate.now());
+            } else if (mensajeUpper.equals("HORA")) {
+                salida.println("[HORA] " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+            } else if (mensajeUpper.equals("LIST")) {
+                salida.println("[CLIENTES] " + String.join(", ", clientesConectados.keySet()));
+            } else if (mensajeUpper.startsWith("RESOLVE")) {
+                salida.println(evaluarExpresionComando(mensaje));
+            } else if (mensajeUpper.startsWith("ALL ")) {
+                difundirMensaje(mensaje.substring(4).trim());
+            } else if (mensajeUpper.startsWith("C")) {
+                manejarMensajePrivado(mensaje);
+            } else {
+                salida.println("[SERVIDOR] Comando no reconocido. Escriba HELP para ayuda.");
+            }
+        }
+
+        private void difundirMensaje(String msg) {
+            if (msg.startsWith("\"") && msg.endsWith("\"")) {
+                msg = msg.substring(1, msg.length() - 1);
+            }
+            String broadcast = "[ALL] " + nombreUsuario + ": " + msg;
+            for (ClientHandler h : clientesConectados.values()) {
+                if (h != this) h.salida.println(broadcast);
+            }
+            salida.println("[OK] Mensaje enviado a todos.");
+        }
+
+        private void manejarMensajePrivado(String mensaje) {
+            // Formato esperado: C1,C2 "mensaje"
+            try {
+                int indexComillas = mensaje.indexOf('"');
+                if (indexComillas == -1) {
+                    salida.println("[ERROR] Formato invalido. Use: C<User> \"mensaje\"");
+                    return;
+                }
+
+                String destinatariosRaw = mensaje.substring(0, indexComillas).trim();
+                String contenido = mensaje.substring(indexComillas).trim();
+                if (contenido.startsWith("\"") && contenido.endsWith("\"")) {
+                    contenido = contenido.substring(1, contenido.length() - 1);
+                }
+
+                String[] destinatarios = destinatariosRaw.split(",");
+                List<String> noEncontrados = new ArrayList<>();
+
+                for (String d : destinatarios) {
+                    String target = d.trim();
+                    if (target.startsWith("C") || target.startsWith("c")) {
+                        target = target.substring(1);
+                    }
+                    
+                    ClientHandler handler = clientesConectados.get(target);
+                    if (handler != null) {
+                        handler.salida.println("[PRIVADO] " + nombreUsuario + ": " + contenido);
+                    } else {
+                        noEncontrados.add(target);
+                    }
+                }
+
+                if (noEncontrados.isEmpty()) {
+                    salida.println("[OK] Mensaje enviado.");
                 } else {
-                    resultado %= derecha;
+                    salida.println("[AVISO] No se pudo enviar a: " + String.join(", ", noEncontrados));
                 }
+
+            } catch (Exception e) {
+                salida.println("[ERROR] Error al procesar mensaje privado.");
             }
-            return resultado;
         }
 
-        private double parsarFactor() {
-            if (pos >= expresion.length()) {
-                throw new RuntimeException("Expresion incompleta");
-            }
-
-            char c = expresion.charAt(pos);
-
-            if (c == '-') {
-                pos++;
-                return -parsarFactor();
-            }
-
-            if (c == '(') {
-                pos++; 
-                double resultado = parsarExpresion();
-                if (pos >= expresion.length() || expresion.charAt(pos) != ')') {
-                    throw new RuntimeException("Parentesis de cierre faltante");
+        private void desconectar() {
+            try {
+                if (nombreUsuario != null) {
+                    clientesConectados.remove(nombreUsuario);
+                    log("<<< Cliente desconectado: " + nombreUsuario);
                 }
-                pos++; // consumir ')'
-                return resultado;
-            }
-
-            if (Character.isDigit(c) || c == '.') {
-                StringBuilder sb = new StringBuilder();
-                while (pos < expresion.length() && (Character.isDigit(expresion.charAt(pos)) || expresion.charAt(pos) == '.')) {
-                    sb.append(expresion.charAt(pos++));
+                if (socket != null && !socket.isClosed()) {
+                    socket.close();
                 }
-                return Double.parseDouble(sb.toString());
+            } catch (IOException e) {
+                // Silencioso
             }
+        }
 
-            throw new RuntimeException("Caracter no reconocido: " + c);
+        // --- Lógica de Calculadora ---
+        private String evaluarExpresionComando(String mensaje) {
+            int inicio = mensaje.indexOf('"');
+            int fin    = mensaje.lastIndexOf('"');
+            if (inicio == -1 || fin == -1 || inicio == fin) {
+                return "[ERROR] Use: RESOLVE \"expresion\"";
+            }
+            String expresion = mensaje.substring(inicio + 1, fin).trim();
+            return evaluarExpresion(expresion);
+        }
+
+        private String evaluarExpresion(String expresion) {
+            if (!expresion.matches("[0-9+\\-*/%.() ]+")) {
+                return "[ERROR] Expresion invalida.";
+            }
+            try {
+                ScriptEngineManager manager = new ScriptEngineManager();
+                ScriptEngine engine = manager.getEngineByName("JavaScript");
+                if (engine != null) {
+                    Object resultado = engine.eval(expresion);
+                    return "[RESULTADO] " + expresion + " = " + resultado;
+                }
+                return "[ERROR] Motor JS no disponible.";
+            } catch (ScriptException e) {
+                return "[ERROR] Matematico: " + e.getMessage();
+            }
         }
     }
 }
+

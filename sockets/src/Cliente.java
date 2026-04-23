@@ -8,7 +8,7 @@ public class Cliente {
     private static final int    PUERTO = 5000;
 
     public static void main(String[] args) {
-        System.out.println("=== CLIENTE SOCKET ===");
+        System.out.println("=== CLIENTE CHAT MULTI-HILO ===");
         System.out.println("Conectando a " + HOST + ":" + PUERTO + "...");
 
         try (Socket socket = new Socket(HOST, PUERTO)) {
@@ -16,41 +16,42 @@ public class Cliente {
 
             BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter    salida  = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+            Scanner scanner = new Scanner(System.in);
+
+            // Handshake de nombre de usuario
+            String servidorMsg = entrada.readLine();
+            if (servidorMsg != null && servidorMsg.startsWith("CONEXION_EXITOSA")) {
+                System.out.println(servidorMsg.split(":")[1].trim());
+                System.out.print("Nombre: ");
+                String user = scanner.nextLine().trim();
+                salida.println(user.isEmpty() ? "Anonimo" : user);
+            }
 
             HiloReceptor receptor = new HiloReceptor(entrada);
             Thread hiloReceptor = new Thread(receptor);
             hiloReceptor.setDaemon(true); 
             hiloReceptor.start();
 
-            Scanner scanner = new Scanner(System.in);
-            System.out.println("Escribe un mensaje y presiona ENTER para enviarlo.");
-            System.out.println("Comandos: RESOLVE \"expresion\"  |  EXIT");
+            System.out.println("\nComandos: HELP, FECHA, HORA, LIST, RESOLVE \"exp\", ALL \"msg\", C<User> \"msg\", EXIT");
             System.out.println("----------------------------------------------");
-            System.out.print("> ");
 
             while (scanner.hasNextLine()) {
+                System.out.print("> ");
                 String mensajeUsuario = scanner.nextLine().trim();
 
-                if (mensajeUsuario.isEmpty()) {
-                    System.out.print("> ");
-                    continue;
-                }
+                if (mensajeUsuario.isEmpty()) continue;
 
                 salida.println(mensajeUsuario);
 
                 if (mensajeUsuario.equalsIgnoreCase("EXIT")) {
                     Thread.sleep(500);
-                    System.out.println("\n[Cliente] Conexion cerrada. Hasta luego!");
+                    System.out.println("\n[Cliente] Desconectado. Hasta luego!");
                     break;
                 }
-
-                Thread.sleep(150);
-                System.out.print("> ");
             }
 
         } catch (ConnectException e) {
             System.err.println("[ERROR] No se pudo conectar al servidor.");
-            System.err.println("        Asegurate de que el Servidor este corriendo en " + HOST + ":" + PUERTO);
         } catch (IOException e) {
             System.err.println("[ERROR] Problema de comunicacion: " + e.getMessage());
         } catch (InterruptedException e) {
@@ -71,12 +72,13 @@ public class Cliente {
             try {
                 String linea;
                 while (activo && (linea = entrada.readLine()) != null) {
-                    System.out.println("\n[Servidor] " + linea);
+                    System.out.println("\r" + linea);
                     System.out.print("> ");
                 }
             } catch (IOException e) {
                 if (activo) {
                     System.err.println("\n[Cliente] Conexion con el servidor perdida.");
+                    System.exit(0);
                 }
             }
         }
