@@ -1,5 +1,3 @@
-
-
 ### Análisis del problema original
 
 El código base violaba principalmente el **Principio de Responsabilidad Única (SRP)**. La clase `CuentaBancaria` estaba haciendo demasiadas cosas:
@@ -20,6 +18,9 @@ Se dividió el sistema en múltiples clases más pequeñas y cohesivas:
 4.  **`ServicioNotificacion` (Interfaz) y `ServicioNotificacionEmail` (Clase)**: Se aplicó también el **DIP** y el **OCP** al crear una interfaz para notificaciones. Ahora, si necesitamos notificar por SMS, simplemente creamos `ServicioNotificacionSMS` sin modificar el código existente.
 
 ### Código Refactorizado
+
+### Repositorio github:
+https://github.com/juanCruzB73/ACONCAGUA-programacionAvanzada/tree/main/tp2
 
 ```java
 // 1. Clase solo para mantener el Estado (Datos)
