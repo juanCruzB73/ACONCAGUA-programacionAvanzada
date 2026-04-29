@@ -62,10 +62,8 @@ public class AplicacionBancaria {
         ImpresoraCuenta impresora = new ImpresoraCuenta();
         impresora.imprimirDetalles(cuenta);
 
-        ExportadorCuentaJSON
-
-        // Uso del servicio de notificación (Inversión de dependencias)
-        ServicioNotificacion notificacionEmail = new SeravicioNotificacionEmail();
-        notificacionEmail.enviarNotificacion(cuenta, "Notificación exitosa!");
+        // Uso de la nueva funcionalidad (SMS)
+        ServicioNotificacion notificacionSMS = new ServicioNotificacionSMS();
+        notificacionSMS.enviarNotificacion(cuenta, "Su transferencia ha sido procesada.");
     }   
 }

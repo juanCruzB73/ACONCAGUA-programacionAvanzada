@@ -1,5 +1,3 @@
-
-
 ### Análisis del problema original
 
 El código base violaba principalmente el **Principio de Responsabilidad Única (SRP)**. La clase `CuentaBancaria` estaba haciendo demasiadas cosas:
@@ -20,6 +18,9 @@ Se dividió el sistema en múltiples clases más pequeñas y cohesivas:
 4.  **`ServicioNotificacion` (Interfaz) y `ServicioNotificacionEmail` (Clase)**: Se aplicó también el **DIP** y el **OCP** al crear una interfaz para notificaciones. Ahora, si necesitamos notificar por SMS, simplemente creamos `ServicioNotificacionSMS` sin modificar el código existente.
 
 ### Código Refactorizado
+
+### Repositorio github:
+https://github.com/juanCruzB73/ACONCAGUA-programacionAvanzada/tree/main/tp2
 
 ```java
 // 1. Clase solo para mantener el Estado (Datos)
@@ -78,6 +79,15 @@ class ServicioNotificacionEmail implements ServicioNotificacion {
     }
 }
 
+// 6. Nueva Funcionalidad siguiendo principio SOLID
+// Agregar nuevos métodos de notificación (Principio Abierto/Cerrado - OCP)
+class ServicioNotificacionSMS implements ServicioNotificacion {
+    @Override
+    public void enviarNotificacion(CuentaBancaria cuenta, String mensaje) {
+        System.out.println("Enviando SMS a " + cuenta.getTitular() + ": " + mensaje);
+    }
+}
+
 // 5. Clase Principal
 public class AplicacionBancaria {
     public static void main(String[] args) {
@@ -96,6 +106,20 @@ public class AplicacionBancaria {
         // Uso del servicio de notificación (Inversión de dependencias)
         ServicioNotificacion notificacionEmail = new ServicioNotificacionEmail();
         notificacionEmail.enviarNotificacion(cuenta, "Notificación exitosa!");
+        
+        // Uso de la nueva funcionalidad (SMS)
+        ServicioNotificacion notificacionSMS = new ServicioNotificacionSMS();
+        notificacionSMS.enviarNotificacion(cuenta, "Su transferencia ha sido procesada.");
     }
 }
 ```
+
+### ¿Cómo cumple esto con el Principio Abierto/Cerrado (OCP)?
+
+El principio **OCP (Open/Closed Principle)** establece que las entidades de software deben estar **abiertas para la extensión, pero cerradas para la modificación**.
+
+En este ejemplo añadido, el principio se cumple a la perfección porque:
+1. **Abierto para la extensión:** Pudimos agregar un comportamiento completamente nuevo al sistema (el envío de notificaciones por SMS) simplemente creando la nueva clase `ServicioNotificacionSMS`.
+2. **Cerrado para la modificación:** No tuvimos que alterar **ni una sola línea** de código de las clases existentes (`CuentaBancaria`, `ServicioNotificacionEmail`, o la interfaz `ServicioNotificacion`) para hacer que esto funcione. 
+
+Al depender de abstracciones (la interfaz `ServicioNotificacion`) en lugar de implementaciones concretas, el sistema permite enchufar nuevas piezas ("plugins" de notificaciones) de forma segura y escalable sin riesgo de romper lo que ya estaba funcionando bien.
