@@ -1,3 +1,6 @@
+### Integrantes
+Berrios Juan Cruz y Puerta Candela.
+
 ### Análisis del problema original
 
 El código base violaba principalmente el **Principio de Responsabilidad Única (SRP)**. La clase `CuentaBancaria` estaba haciendo demasiadas cosas:
@@ -123,3 +126,12 @@ En este ejemplo añadido, el principio se cumple a la perfección porque:
 2. **Cerrado para la modificación:** No tuvimos que alterar **ni una sola línea** de código de las clases existentes (`CuentaBancaria`, `ServicioNotificacionEmail`, o la interfaz `ServicioNotificacion`) para hacer que esto funcione. 
 
 Al depender de abstracciones (la interfaz `ServicioNotificacion`) en lugar de implementaciones concretas, el sistema permite enchufar nuevas piezas ("plugins" de notificaciones) de forma segura y escalable sin riesgo de romper lo que ya estaba funcionando bien.
+## Cuadro Comparativo: Aplicación de los Principios
+
+| Principio | Cuándo conviene usarlo | 
+| :--- | :--- |
+| **Responsabilidad Única** | Cuando una clase es demasiado grande y difícil de entender o testear. |
+| **Abierto/Cerrado** | Cuando el sistema requiere añadir nuevas reglas de negocio o tipos frecuentemente. |
+| **Sustitución de Liskov** | Siempre que se use herencia para garantizar la integridad del sistema. |
+| **Segregación de Interfaces** | Cuando una interfaz obliga a las clases a implementar métodos innecesarios. | 
+| **Inversión de Dependencias** | Para facilitar las pruebas unitarias y el intercambio de componentes externos. |
