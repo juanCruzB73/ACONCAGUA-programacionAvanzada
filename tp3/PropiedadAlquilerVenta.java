@@ -85,6 +85,26 @@ public class PropiedadAlquilerVenta extends Propiedad implements Alquilable, Ven
         return comprador;
     }
 
+    /**
+     * Reconstruye el estado de alquiler desde la base de datos sin disparar las reglas de negocio.
+     */
+    public void cargarEstadoAlquiler(boolean alquilada, String inquilino, int mesesContrato) {
+        this.alquilada = alquilada;
+        this.inquilino = inquilino;
+        this.mesesContrato = mesesContrato;
+    }
+
+    /**
+     * Reconstruye el estado de venta desde la base de datos sin disparar las reglas de negocio.
+     */
+    public void cargarEstadoVenta(boolean vendida, String comprador) {
+        this.vendida = vendida;
+        this.comprador = comprador;
+        if (vendida) {
+            setPropietario(comprador);
+        }
+    }
+
     @Override
     public String getDetallesGenerales() {
         return super.getDetallesGenerales() + String.format(

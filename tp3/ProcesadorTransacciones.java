@@ -24,7 +24,12 @@ public class ProcesadorTransacciones {
         try {
             propiedad.alquilar(inquilino, meses);
             double totalContrato = propiedad.getPrecioAlquiler() * meses;
-            System.out.println("¡Alquiler procesado con éxito!");
+            
+            // Persistir transacción en la Base de Datos
+            int idPropiedad = ((Propiedad) propiedad).getId();
+            DatabaseManager.getInstancia().registrarAlquiler(idPropiedad, inquilino, meses, propiedad.getPrecioAlquiler());
+
+            System.out.println("¡Alquiler procesado con éxito y registrado en la DB!");
             System.out.printf("   Inquilino: %s | Duración: %d meses\n", inquilino, meses);
             System.out.printf("   Monto mensual: $%.2f | Total del contrato: $%.2f\n", 
                     propiedad.getPrecioAlquiler(), totalContrato);
@@ -49,7 +54,12 @@ public class ProcesadorTransacciones {
 
         try {
             propiedad.vender(comprador);
-            System.out.println("¡Venta finalizada exitosamente!");
+            
+            // Persistir transacción en la Base de Datos (también cambia el propietario)
+            int idPropiedad = ((Propiedad) propiedad).getId();
+            DatabaseManager.getInstancia().registrarVenta(idPropiedad, comprador, propiedad.getPrecioVenta());
+
+            System.out.println("¡Venta finalizada exitosamente y registrada en la DB!");
             System.out.printf("   Comprador/Nuevo Propietario: %s\n", comprador);
             System.out.printf("   Monto de venta acordado: $%.2f\n", propiedad.getPrecioVenta());
         } catch (Exception e) {

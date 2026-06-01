@@ -42,6 +42,17 @@ public class PropiedadVenta extends Propiedad implements Vendible {
         return comprador;
     }
 
+    /**
+     * Reconstruye el estado de venta desde la base de datos sin disparar las reglas de negocio.
+     */
+    public void cargarEstadoVenta(boolean vendida, String comprador) {
+        this.vendida = vendida;
+        this.comprador = comprador;
+        if (vendida) {
+            setPropietario(comprador);
+        }
+    }
+
     @Override
     public String getDetallesGenerales() {
         return super.getDetallesGenerales() + String.format(" | Tipo: Venta | Precio Venta: $%.2f | Estado: %s", 

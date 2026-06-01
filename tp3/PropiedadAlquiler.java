@@ -48,6 +48,15 @@ public class PropiedadAlquiler extends Propiedad implements Alquilable {
         return mesesContrato;
     }
 
+    /**
+     * Reconstruye el estado de alquiler desde la base de datos sin disparar las reglas de negocio.
+     */
+    public void cargarEstadoAlquiler(boolean alquilada, String inquilino, int mesesContrato) {
+        this.alquilada = alquilada;
+        this.inquilino = inquilino;
+        this.mesesContrato = mesesContrato;
+    }
+
     @Override
     public String getDetallesGenerales() {
         return super.getDetallesGenerales() + String.format(" | Tipo: Alquiler | Precio Alquiler: $%.2f/mes | Estado: %s", 

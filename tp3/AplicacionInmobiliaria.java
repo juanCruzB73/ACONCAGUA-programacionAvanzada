@@ -17,21 +17,32 @@ public class AplicacionInmobiliaria {
         System.out.println("   SISTEMA DE GESTIÓN INMOBILIARIA - TP3 (LSP)   ");
         System.out.println("==================================================");
 
-        // 1. Crear las propiedades en la inmobiliaria
-        PropiedadAlquiler deptoAlquiler = new PropiedadAlquiler(
-                101, "Av. San Martín 1500, Mendoza", 45.5, "Marta Gómez", 120000.0);
+        // 0. Inicializar base de datos SQLite (limpiando simulación anterior)
+        DatabaseManager.eliminarBaseDeDatosExistente();
+        DatabaseManager.getInstancia().inicializarBaseDeDatos();
+
+        // 1. Cargar las propiedades desde la base de datos (reconstruyendo jerarquía polimórfica)
+        List<Propiedad> propiedades = DatabaseManager.getInstancia().obtenerTodasLasPropiedades();
         
-        PropiedadVenta casaVenta = new PropiedadVenta(
-                202, "Calle Las Heras 340, Godoy Cruz", 120.0, "Carlos Pérez", 85000.0);
-        
-        PropiedadAlquilerVenta duplexMixto = new PropiedadAlquilerVenta(
-                303, "Ruta 60 Km 12, Luján de Cuyo", 180.0, "Inmobiliaria Aconcagua", 250000.0, 150000.0);
+        PropiedadAlquiler deptoAlquiler = null;
+        PropiedadVenta casaVenta = null;
+        PropiedadAlquilerVenta duplexMixto = null;
+
+        for (Propiedad p : propiedades) {
+            if (p.getId() == 101 && p instanceof PropiedadAlquiler) {
+                deptoAlquiler = (PropiedadAlquiler) p;
+            } else if (p.getId() == 202 && p instanceof PropiedadVenta) {
+                casaVenta = (PropiedadVenta) p;
+            } else if (p.getId() == 303 && p instanceof PropiedadAlquilerVenta) {
+                duplexMixto = (PropiedadAlquilerVenta) p;
+            }
+        }
 
         // Imprimir estado inicial
-        System.out.println("\n--- ESTADO INICIAL DE LAS PROPIEDADES ---");
-        System.out.println(deptoAlquiler.getDetallesGenerales());
-        System.out.println(casaVenta.getDetallesGenerales());
-        System.out.println(duplexMixto.getDetallesGenerales());
+        System.out.println("\n--- ESTADO INICIAL DE LAS PROPIEDADES (DESDE LA DB) ---");
+        if (deptoAlquiler != null) System.out.println(deptoAlquiler.getDetallesGenerales());
+        if (casaVenta != null) System.out.println(casaVenta.getDetallesGenerales());
+        if (duplexMixto != null) System.out.println(duplexMixto.getDetallesGenerales());
         System.out.println("==================================================\n");
 
         // 2. Instanciar el procesador de transacciones (Cliente del sistema)
@@ -39,25 +50,37 @@ public class AplicacionInmobiliaria {
 
         // 3. Simular transacciones válidas sin violaciones de tipos
         System.out.println("--- PROCESANDO TRANSACCIONES DE ALQUILER ---");
-        // deptoAlquiler implementa Alquilable, es seguro pasarlo
-        procesador.procesarAlquiler(deptoAlquiler, "Juan Cruz Berrios", 24);
+        if (deptoAlquiler != null) {
+            // deptoAlquiler implementa Alquilable, es seguro pasarlo
+            procesador.procesarAlquiler(deptoAlquiler, "Juan Cruz Berrios", 24);
+        }
         
-        // duplexMixto también implementa Alquilable, es seguro pasarlo
-        procesador.procesarAlquiler(duplexMixto, "Candela Puerta", 12);
+        if (duplexMixto != null) {
+            // duplexMixto también implementa Alquilable, es seguro pasarlo
+            procesador.procesarAlquiler(duplexMixto, "Candela Puerta", 12);
+        }
 
         System.out.println("--- PROCESANDO TRANSACCIONES DE VENTA ---");
-        // casaVenta implementa Vendible, es seguro pasarlo
-        procesador.procesarVenta(casaVenta, "Esteban Quito");
+        if (casaVenta != null) {
+            // casaVenta implementa Vendible, es seguro pasarlo
+            procesador.procesarVenta(casaVenta, "Esteban Quito");
+        }
         
-        // duplexMixto también implementa Vendible, es seguro pasarlo
-        procesador.procesarVenta(duplexMixto, "Sofía Rodríguez");
+        if (duplexMixto != null) {
+            // duplexMixto también implementa Vendible, es seguro pasarlo
+            procesador.procesarVenta(duplexMixto, "Sofía Rodríguez");
+        }
 
-        // 4. Imprimir estado final de las propiedades
-        System.out.println("\n--- ESTADO FINAL DE LAS PROPIEDADES ---");
-        System.out.println(deptoAlquiler.getDetallesGenerales());
-        System.out.println(casaVenta.getDetallesGenerales());
-        System.out.println(duplexMixto.getDetallesGenerales());
+        // 4. Recargar el estado final directamente de la base de datos para verificar persistencia
+        System.out.println("\n--- ESTADO FINAL DE LAS PROPIEDADES (RECUPERADO DE LA DB) ---");
+        List<Propiedad> propiedadesFinales = DatabaseManager.getInstancia().obtenerTodasLasPropiedades();
+        for (Propiedad p : propiedadesFinales) {
+            System.out.println(p.getDetallesGenerales());
+        }
         System.out.println("==================================================\n");
+
+        // 5. Imprimir historial de contratos y transacciones registrados en la DB
+        DatabaseManager.getInstancia().imprimirTablasHistoricas();
 
         // Explicación de la Violación del LSP
         mostrarExplicacionLSP();
