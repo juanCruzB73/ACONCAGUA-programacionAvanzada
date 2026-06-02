@@ -250,13 +250,13 @@ erDiagram
         int id_propietario FK
     }
     propiedades_alquiler {
-        int id_propiedad PK_FK
+        int id_propiedad PK "FK a propiedades"
         decimal precio_alquiler
         boolean esta_alquilada
         int id_inquilino_actual FK
     }
     propiedades_venta {
-        int id_propiedad PK_FK
+        int id_propiedad PK "FK a propiedades"
         decimal precio_venta
         boolean esta_vendida
         int id_comprador FK

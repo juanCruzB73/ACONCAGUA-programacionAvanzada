@@ -83,13 +83,13 @@ public class AplicacionInmobiliaria {
         DatabaseManager.getInstancia().imprimirTablasHistoricas();
 
         // Explicación de la Violación del LSP
-        mostrarExplicacionLSP();
+        //mostrarExplicacionLSP();
     }
 
     /**
      * Muestra de forma didáctica en consola la explicación sobre la violación del LSP.
      */
-    private static void mostrarExplicacionLSP() {
+    /*private static void mostrarExplicacionLSP() {
         System.out.println("==================================================");
         System.out.println("    EXPLICACIÓN DIDÁCTICA: VIOLACIÓN DEL LSP      ");
         System.out.println("==================================================");
@@ -118,5 +118,5 @@ public class AplicacionInmobiliaria {
         System.out.println("De esta forma, es imposible intentar alquilar una propiedad que es de venta exclusiva");
         System.out.println("en tiempo de compilación. ¡El sistema es robusto, seguro y respeta LSP!");
         System.out.println("==================================================");
-    }
+    }*/
 }
